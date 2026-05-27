@@ -18,6 +18,8 @@ def compute_rmse(y, y_hat) -> float:
     return float(np.sqrt(np.mean((y - y_hat) ** 2)))
 
 
+
+# Build the cyclic Laplacian kernel for temporal smoothness.
 def laplacian_kernel_cyclic(T: int, tau: int) -> np.ndarray:
     ell = np.zeros(T, dtype=float)
     ell[0] = 2.0 * tau
@@ -40,11 +42,14 @@ def complex_soft_threshold(Z: np.ndarray, thresh: float, eps: float = 1e-12) -> 
     return Z * scale
 
 
+
+# Proximal step of the circulant nuclear norm, implemented in the FFT domain.
 def prox_circulant_tensor_nuclear_norm(V: np.ndarray, thresh: float) -> np.ndarray:
     V_hat = np.fft.fft2(V, axes=(0, 1), norm="ortho")
     V_hat_shrink = complex_soft_threshold(V_hat, thresh)
     X = np.fft.ifft2(V_hat_shrink, axes=(0, 1), norm="ortho").real
     return X
+
 
 
 def pearson_corr_ignore_nan(a: np.ndarray, b: np.ndarray, min_common: int = 5) -> float:
@@ -69,6 +74,8 @@ def pearson_corr_ignore_nan(a: np.ndarray, b: np.ndarray, min_common: int = 5) -
     return float(np.clip(rho, -1.0, 1.0))
 
 
+
+# Construct the signed Laplacian to model cross-load coupling.
 def build_signed_laplacian(Y_obs: np.ndarray, min_common: int = 5) -> np.ndarray:
     N, _ = Y_obs.shape
     S = np.zeros((N, N), dtype=float)
@@ -119,6 +126,7 @@ def solve_x_subproblem_pgm(
     for _ in range(inner_max_iter):
         X_old = X
 
+        # Temporal regularization gradient is evaluated efficiently by FFT.
         X_hat = np.fft.fft(X, axis=1)
         if X.ndim == 2:
             Xt2 = np.fft.ifft(X_hat * abs_eig2[None, :], axis=1).real
@@ -126,6 +134,7 @@ def solve_x_subproblem_pgm(
             Xt2 = np.fft.ifft(X_hat * abs_eig2[None, :, None], axis=1).real
         grad_t = gamma_t * Xt2
 
+        # Cross-load coupling gradient from the signed Laplacian.
         if gamma_s > 0:
             if X.ndim == 2:
                 grad_s = 2.0 * gamma_s * (Ls @ X)
@@ -176,6 +185,7 @@ def admm_impute(
     else:
         Ls = np.zeros((N, N), dtype=float)
 
+    # Initialize missing entries by row-wise mean values.
     Y_filled = Y.copy()
     if Y.ndim == 2:
         for i in range(N):
@@ -204,6 +214,7 @@ def admm_impute(
         if gamma_s > 0:
             print(f"  Ls spectral norm ~ {spectral_norm_symmetric(Ls):.6f}")
 
+    # Main ADMM loop: update X, Z, and the dual variable alternately.
     for k in range(admm_max_iter):
         Z_prev = Z.copy()
 
@@ -222,6 +233,7 @@ def admm_impute(
 
         temp = lam * X + Wdual
 
+        # Observed entries are pulled toward measurements; missing entries follow X.
         obs = ~np.isnan(Y_obs)
         Z = temp / lam
         Z[obs] = (temp[obs] + eta * Y_obs[obs]) / (lam + eta)
@@ -256,6 +268,7 @@ def main() -> None:
     print("data.shape:", data.shape)
     T, N = data.shape
 
+    # Normalize before imputation and restore the original scale after recovery.
     scaler = StandardScaler()
     data_norm = scaler.fit_transform(data)
 
@@ -267,6 +280,7 @@ def main() -> None:
 
     Y_true = data_trans
 
+    # Hyperparameters used in this experiment.
     lam_factor = 0.0006313387185634842
     lam = lam_factor * N * T
 
@@ -323,6 +337,7 @@ def main() -> None:
     print(f"Saved: {save_path}")
     print(f"Running time: {end - start:.4f} seconds.")
 
+    # Report errors only on the artificially masked entries.
     y_true_missing = data[masks == 1]
     y_hat_missing = X_hat_denorm[masks == 1]
 
