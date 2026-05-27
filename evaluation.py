@@ -2,6 +2,7 @@ import os
 import numpy as np
 
 
+# Error metrics are computed only on the missing entries indicated by the mask.
 def mae(y_true, y_pred, mask):
     idx = mask == 1
     return np.mean(np.abs(y_true[idx] - y_pred[idx]))
@@ -25,6 +26,7 @@ def main():
     if not os.path.exists(result_file):
         raise FileNotFoundError(f"Result file not found: {result_file}")
 
+    # Load ground truth data, missing mask, and recovered results.
     data = np.load("./data/data.npy")
     mask = np.load("./data/mask_point_missing.npy")
     pred = np.load(result_file)
@@ -38,6 +40,7 @@ def main():
 
     T, N = data.shape
 
+    # Overall performance on all masked entries.
     print("\n========== Overall Missing Evaluation ==========")
 
     overall_mae = mae(data, pred, mask)
@@ -48,6 +51,7 @@ def main():
     print(f"RMSE : {overall_rmse:.6f}")
     print(f"MAPE : {overall_mape * 100:.3f}%")
 
+    # Report performance for each load variable separately.
     print("\n========== Per Variable Evaluation ==========")
 
     for i in range(N):
