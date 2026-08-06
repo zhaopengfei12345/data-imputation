@@ -259,8 +259,14 @@ def admm_impute(
 
 
 def main() -> None:
-    data = np.load("./data/data.npy")
-    mask_path = "./data/mask_contiguous_missing.npy"
+    data_all = np.load("./data/data.npy")
+    train_ratio = 0.8
+    validation_ratio = 0.1
+    train_end = int(len(data_all) * train_ratio)
+    test_start = int(len(data_all) * (train_ratio + validation_ratio))
+    train_data = data_all[:train_end]
+    data = data_all[test_start:]
+    mask_path = "./data/mask_point_missing.npy"
     masks = np.load(mask_path)
 
     scenario = "point_missing" if "point" in mask_path else "contiguous_missing"
@@ -270,7 +276,8 @@ def main() -> None:
 
     # Normalize before imputation and restore the original scale after recovery.
     scaler = StandardScaler()
-    data_norm = scaler.fit_transform(data)
+    scaler.fit(train_data)
+    data_norm = scaler.transform(data)
 
     data_trans = data_norm.T
 

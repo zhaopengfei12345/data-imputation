@@ -21,13 +21,17 @@ def mape(y_true, y_pred, mask, eps=1e-12):
 
 def main():
 
-    result_file = "result/Result_point_missing_tau2_lam7_gt3_gs0.npy"
+    result_file = "result/Result_point_missing_tau2_lam5_gt2_gs0.npy"
 
     if not os.path.exists(result_file):
         raise FileNotFoundError(f"Result file not found: {result_file}")
 
     # Load ground truth data, missing mask, and recovered results.
-    data = np.load("./data/data.npy")
+    data_all = np.load("./data/data.npy")
+    train_ratio = 0.8
+    validation_ratio = 0.1
+    test_start = int(len(data_all) * (train_ratio + validation_ratio))
+    data = data_all[test_start:]
     mask = np.load("./data/mask_point_missing.npy")
     pred = np.load(result_file)
 
